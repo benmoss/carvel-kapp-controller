@@ -2,7 +2,7 @@
   
 # kapp-controller
 
-Kubernetes native continuous delivery and package management experience through custom resource definitions.
+Kubernetes native continuous delivery reconcilation propogation and package management experience through custom resource definitions.
 
 <p>
 <a href="https://carvel.dev/kapp-controller/docs/latest">Documentation</a> ·
