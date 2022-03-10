@@ -8,9 +8,9 @@ jobs:
       - name: Check out code.
         uses: actions/checkout@v2
       - name: misspell
-        uses: reviewdog/action-misspell@v1
+        uses: reviewdog/action-misspell@e71015afcf6b31e78b03ac2bc15a8422a0fc13d5 # v1.1.0
         with:
-          github_token: ${{ secrets.github_token }}
+          fail_on_error: true
           locale: "US"
           exclude: |
             ./vendor/*
