@@ -1,7 +1,7 @@
 name: reviewdog
 on: [pull_request]
 permissions:
-  pull_request: write
+  pull-requests: write
 jobs:
   misspell:
     name: runner / misspell
