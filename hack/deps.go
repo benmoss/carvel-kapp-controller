@@ -30,12 +30,13 @@ var dependencies string
 type dependency struct {
 	Name      string
 	Version   string
+	Dev       bool
 	Artifacts map[string]map[string]artifact
 }
 
 type artifact struct {
 	URL            string
-	Checksum       string
+	Checksum       *string
 	TarballSubpath *string
 }
 
@@ -43,6 +44,7 @@ func main() {
 	targetOS := flag.String("os", runtime.GOOS, "os to install dependencies for")
 	targetArch := flag.String("arch", runtime.GOARCH, "arch to install dependencies for")
 	destDir := flag.String("dest", "", "directory to which binaries will be installed")
+	dev := flag.Bool("dev", false, "only install dev dependencies (default false)")
 	flag.Parse()
 
 	if *destDir == "" {
@@ -59,6 +61,9 @@ func main() {
 
 	var wg sync.WaitGroup
 	for _, dep := range deps {
+		if *dev && !dep.Dev {
+			continue
+		}
 		wg.Add(1)
 		go func(dep dependency) {
 			defer wg.Done()
@@ -70,6 +75,10 @@ func main() {
 
 func downloadAndVerify(dep dependency, targetOS, targetArch, destDir string) {
 	artifact := dep.Artifacts[targetOS][targetArch]
+	if artifact.Checksum == nil {
+		log.Printf("%s not supported on platform %s/%s", dep.Name, targetOS, targetArch)
+		return
+	}
 
 	resp, err := http.Get(artifact.URL)
 	if err != nil {
@@ -91,8 +100,8 @@ func downloadAndVerify(dep dependency, targetOS, targetArch, destDir string) {
 		log.Fatal(err)
 	}
 	actual := hex.EncodeToString(hasher.Sum(nil))
-	if actual != artifact.Checksum {
-		log.Fatalf("wrong checksum, expected: %s, got: %s", artifact.Checksum, actual)
+	if actual != *artifact.Checksum {
+		log.Fatalf("%s: wrong checksum, expected: %s, got: %s", dep.Name, *artifact.Checksum, actual)
 	}
 
 	if artifact.TarballSubpath != nil {
