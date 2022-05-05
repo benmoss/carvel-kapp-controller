@@ -1,0 +1,9 @@
+defaultBaseImage: ko.local/kc-base
+builds:
+  - id: kapp-controller
+    main: ./cmd/
+    flags:
+    - -mod=vendor
+    - -trimpath
+    ldflags:
+    - -X main.version={{.Env.VERSION}}

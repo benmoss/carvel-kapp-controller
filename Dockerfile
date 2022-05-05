@@ -27,12 +27,7 @@ RUN curl -sLo cue.tgz https://github.com/cue-lang/cue/releases/download/v0.4.2/c
   echo "d43cf77e54f42619d270b8e4c1836aec87304daf243449c503251e6943f7466a cue.tgz" | sha256sum -c - && \
   tar -xf cue.tgz -C /usr/local/bin cue && cue version
 
-# kapp-controller
-COPY . .
-# helpful ldflags reference: https://www.digitalocean.com/community/tutorials/using-ldflags-to-set-version-information-for-go-applications
-RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -ldflags="-X 'main.Version=$KCTRL_VER' -buildid=" -trimpath -o controller ./cmd/main.go
-
-# --- run image ---
+# --- base run image ---
 FROM photon:4.0
 
 # Install openssh for git
@@ -59,9 +54,6 @@ COPY --from=deps /usr/local/bin/cue .
 
 # deployers
 COPY --from=deps /usr/local/bin/kapp .
-
-# Name it kapp-controller to identify it easier in process tree
-COPY --from=deps /workspace/controller kapp-controller
 
 # Copy the ca-bundle so we have an original
 RUN cp /etc/pki/tls/certs/ca-bundle.crt /etc/pki/tls/certs/ca-bundle.crt.orig
