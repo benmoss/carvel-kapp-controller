@@ -6,6 +6,7 @@ package main
 import (
 	"flag"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"github.com/vmware-tanzu/carvel-kapp-controller/cmd/controller"
@@ -14,9 +15,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
-
-// Version of kapp-controller is set via ldflags at build-time from the most recent git tag; see hack/build.sh
-var Version = "develop"
 
 func main() {
 	ctrlOpts := controller.Options{}
@@ -38,7 +36,7 @@ func main() {
 	klog.SetLogger(log)
 
 	mainLog := log.WithName("main")
-	mainLog.Info("kapp-controller", "version", Version)
+	mainLog.Info("kapp-controller", "version", version())
 
 	if runController {
 		err := controller.Run(ctrlOpts, log.WithName("controller"))
@@ -52,4 +50,12 @@ func main() {
 
 	controllerinit.Run(os.Args[0], os.Args[1:], log.WithName("init"))
 	panic("unreachable: init proc returned")
+}
+
+func version() string {
+	i, ok := debug.ReadBuildInfo()
+	if !ok {
+		return ""
+	}
+	return i.Main.Version
 }
