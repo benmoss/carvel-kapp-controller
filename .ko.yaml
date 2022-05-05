@@ -6,4 +6,4 @@ builds:
     - -mod=vendor
     - -trimpath
     ldflags:
-    - -X main.version={{.Env.VERSION}}
+    - -X main.Version={{or (index .Env "VERSION") "develop"}}
