@@ -10,3 +10,4 @@ enable_api_priority_and_fairness: true
 dangerous_enable_pprof: false
 
 api_port: 10350
+kapp_controller_version: "develop"
