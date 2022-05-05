@@ -35,9 +35,9 @@ jobs:
         kbld: v0.31.0
         vendir: v0.23.0
     - uses: imjasonh/setup-ko@v0.4
-    - name: Run Tests
       env:
         KO_DOCKER_REPO: ko.local
+    - name: Run Tests
       run: |
         set -e -x
 

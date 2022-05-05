@@ -26,9 +26,9 @@ jobs:
     - name: Install Carvel Tools
       run: ./hack/install-deps.sh
     - uses: imjasonh/setup-ko@v0.4
-    - name: Run Tests
       env:
         KO_DOCKER_REPO: ko.local
+    - name: Run Tests
       run: |
         set -e -x
         mkdir /tmp/bin
