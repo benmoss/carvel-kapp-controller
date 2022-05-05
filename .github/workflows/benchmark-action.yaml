@@ -30,6 +30,8 @@ jobs:
       # Run benchmark with `go test -bench` and stores the output to a file
       - uses: imjasonh/setup-ko@v0.4
       - name: Setup k8s and Run benchmark
+        env:
+          KO_DOCKER_REPO: ko.local
         run: |
           set -e -x
           mkdir /tmp/bin

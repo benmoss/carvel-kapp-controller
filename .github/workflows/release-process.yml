@@ -36,8 +36,6 @@ jobs:
       - uses: imjasonh/setup-ko@v0.4
 
       - name: Run release script
-        env:
-          KO_DOCKER_REPO: ghcr.io/${{github.repository}}
         run: |
           set -e -x
           ./hack/build-release.sh

@@ -36,6 +36,8 @@ jobs:
         vendir: v0.23.0
     - uses: imjasonh/setup-ko@v0.4
     - name: Run Tests
+      env:
+        KO_DOCKER_REPO: ko.local
       run: |
         set -e -x
 
