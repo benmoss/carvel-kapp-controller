@@ -28,6 +28,7 @@ jobs:
       - name: Install Carvel Tools
         run: ./hack/install-deps.sh
       # Run benchmark with `go test -bench` and stores the output to a file
+      - uses: imjasonh/setup-ko@v0.4
       - name: Setup k8s and Run benchmark
         run: |
           set -e -x

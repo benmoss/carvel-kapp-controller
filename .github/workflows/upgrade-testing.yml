@@ -25,6 +25,7 @@ jobs:
         uses: actions/checkout@v3.0.1
       - name: Install Carvel Tools
         run: ./hack/install-deps.sh
+      - uses: imjasonh/setup-ko@v0.4
       - name: Run Upgrade Test
         run: |
           set -e -x
