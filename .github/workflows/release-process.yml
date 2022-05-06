@@ -53,12 +53,16 @@ jobs:
           flavor: latest=false
 
 
+      - name: Get tag
+        id: get_tag
+        run: echo ::set-output name=tag::${GITHUB_REF#refs/tags/}
+
       - name: Build and push Docker image
         id: build-and-push
         uses: docker/build-push-action@v3
         with:
           context: .
-          build-args: KCTRL_VER=${{ github.event.release.tag_name }}
+          build-args: KCTRL_VER=${{steps.get_tag.outputs.tag}}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
