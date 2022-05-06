@@ -70,7 +70,7 @@ jobs:
 
       - name: Run release script
         env:
-          IMAGE: ${{env.REGISTRY}}/${{env.IMAGE_NAME}}:${{ steps.meta.outputs.digest }}
+          IMAGE: ${{env.REGISTRY}}/${{env.IMAGE_NAME}}:${{ steps.build-and-push.outputs.digest }}
         run: |
           set -e -x
           ./hack/build-release.sh
