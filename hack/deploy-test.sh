@@ -2,7 +2,7 @@
 
 set -e
 
-image="${KC_IMG:-carvel/kapp-controller:latest}"
+image="${KC_IMG:-carvel/kapp-controller:dev}"
 docker build -t "${image}" .
 if [ -n "${KC_IMG_PUSH}" ]; then
   docker push -t "${image}"

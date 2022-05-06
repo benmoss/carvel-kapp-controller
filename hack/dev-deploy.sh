@@ -21,7 +21,7 @@ tail -n +$run_image_start Dockerfile | \
    sed 's/usr\/local\/bin\///' \
    >> Dockerfile.dev
 
-image="${KC_IMG:-carvel/kapp-controller:latest}"
+image="${KC_IMG:-carvel/kapp-controller:dev}"
 docker build -t "${image}" Dockerfile.dev
 if [ -n "${KC_IMG_PUSH}" ]; then
   docker push -t "${image}"
