@@ -37,6 +37,12 @@ jobs:
       - name: Run release script
         run: |
           set -e -x
+          brew tap vmware-tanzu/buildkit-cli-for-kubectl https://github.com/vmware-tanzu/buildkit-cli-for-kubectl
+          brew install minikube kubectl-buildkit
+          minikube start --driver=docker
+          eval $(minikube docker-env --shell=bash)
+          kubectl create secret docker-registry ghcr --docker-server=ghcr.io --docker-username=${{ github.actor }} --docker-password=${{ secrets.GITHUB_TOKEN }}
+          export KCTRL_push_secret=ghcr
           ./hack/build-release.sh
           cd cli
           ./hack/build-binaries.sh
