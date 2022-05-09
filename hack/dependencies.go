@@ -41,6 +41,8 @@ type dependency struct {
 	URLTemplate string `json:"urlTemplate"`
 	// Whether this should be installed by the --dev flag
 	Dev bool `json:"dev"`
+	// Whether this should be installed without the --dev flag
+	Prod bool `json:"prod"`
 	// Optional ways of configuring how we check for updates
 	AutoUpdate *autoUpdate `json:"autoupdate,omitempty"`
 	// map["linux"]map["amd64"] => "sha256"
@@ -99,6 +101,8 @@ func (c *installCommand) Install() error {
 	g := errgroup.Group{}
 	for _, dep := range dependencies {
 		if c.dev && !dep.Dev {
+			continue
+		} else if !c.dev && !dep.Prod {
 			continue
 		}
 		dep := dep // https://golang.org/doc/faq#closures_and_goroutines

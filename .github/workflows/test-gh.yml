@@ -38,11 +38,8 @@ jobs:
 
         ./hack/verify-no-dirty-files.sh
 
-        curl -sLo /tmp/bin/minikube https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64
-        chmod +x /tmp/bin/minikube
         minikube start --driver=docker
         eval $(minikube docker-env --shell=bash)
-
         export KAPPCTRL_E2E_SECRETGEN_CONTROLLER=true
         ./hack/deploy-test.sh
 
