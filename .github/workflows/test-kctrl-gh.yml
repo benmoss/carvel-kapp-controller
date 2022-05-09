@@ -26,14 +26,7 @@ jobs:
       with:
         fetch-depth: 0
     - name: Install Carvel Tools
-      uses: vmware-tanzu/carvel-setup-action@v1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        only: ytt, kapp, kbld, vendir
-        ytt: v0.38.0
-        kapp: v0.42.0
-        kbld: v0.31.0
-        vendir: v0.23.0
+      run: ./hack/install-deps.sh
     - name: Run Tests
       run: |
         set -e -x
@@ -48,11 +41,8 @@ jobs:
 
         ./hack/verify-no-dirty-files.sh
 
-        curl -sLo /tmp/bin/minikube https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64
-        chmod +x /tmp/bin/minikube
-        minikube start --driver=docker
+        minikube start --driver=docker --wait=all
         eval $(minikube docker-env --shell=bash)
-
         export KAPPCTRL_E2E_SECRETGEN_CONTROLLER=true
         ./hack/deploy-test.sh
 
