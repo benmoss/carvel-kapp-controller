@@ -32,7 +32,7 @@ jobs:
       - name: Run release script
         run: |
           set -e -x
-          minikube start --driver=docker
+          minikube start --driver=docker --wait=all
           kubectl create secret docker-registry ghcr --docker-server=ghcr.io --docker-username=${{ github.actor }} --docker-password=${{ secrets.GITHUB_TOKEN }}
           export KCTRL_push_secret=ghcr
           ./hack/build-release.sh
