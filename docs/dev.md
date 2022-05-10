@@ -2,10 +2,11 @@
 
 ### Prerequisites
 
-You will need the following tools to build and deploy kapp-controller: 
+You will need the following tools to build and deploy kapp-controller:
 * ytt
 * kbld
 * kapp
+* buildkit-cli-for-kubectl
 
 For linux/mac users, all the tools below can be installed by running `./hack/install-deps.sh`.
 
@@ -13,6 +14,7 @@ For windows users, please download the binaries from the respective GitHub repos
 * https://github.com/vmware-tanzu/carvel-ytt
 * https://github.com/vmware-tanzu/carvel-kbld
 * https://github.com/vmware-tanzu/carvel-kapp
+* https://github.com/vmware-tanzu/buildkit-cli-for-kubectl
 
 ### Build
 
