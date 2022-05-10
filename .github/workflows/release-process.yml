@@ -9,7 +9,6 @@ on:
 jobs:
   kapp-controller-release:
     name: kapp-controller release
-    needs: minikube
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
