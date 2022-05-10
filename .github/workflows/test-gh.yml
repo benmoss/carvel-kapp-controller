@@ -38,7 +38,7 @@ jobs:
 
         ./hack/verify-no-dirty-files.sh
 
-        minikube start --driver=docker
+        minikube start --driver=docker --wait=all
         eval $(minikube docker-env --shell=bash)
         export KAPPCTRL_E2E_SECRETGEN_CONTROLLER=true
         ./hack/deploy-test.sh
