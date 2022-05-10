@@ -43,8 +43,8 @@
       arm64: 8808e0cbe06028581b8ed48e0a8426b7fd9dc26d17e24f9ab96522774892839a
   dev: true
   name: kapp
-  urlTemplate: https://github.com/vmware-tanzu/carvel-{{.Name}}/releases/download/{{.Version}}/{{.Name}}-{{.OS}}-{{.Arch}}
   prod: true
+  urlTemplate: https://github.com/vmware-tanzu/carvel-{{.Name}}/releases/download/{{.Version}}/{{.Name}}-{{.OS}}-{{.Arch}}
   version: v0.47.0
 - autoupdate:
     checksums:
@@ -87,11 +87,11 @@
   prod: true
   tarballSubpath: '{{.OS}}-{{.Arch}}/helm'
   urlTemplate: https://get.helm.sh/helm-{{.Version}}-{{.OS}}-{{.Arch}}.tar.gz
-  version: v3.7.1
+  version: v3.8.0
 - checksums:
     linux:
-      amd64: 0f54a5fc68f82d3dcb0d3310253f2259fef1902d48cfa0a8721b82803c575024
-      arm64: 86a6c48ec64255bd317d7cd52c601dc62e81be68ca07cdeb21a1e0809763647f
+      amd64: 8408c91e846c5b9ba15eb6b1a5a79fc22dd4d33ac6ea63388e5698d1b2320c8b
+      arm64: 23e08035dc0106fe4e0bd85800fd795b2b9ecd9f32187aa16c49b0a917105161
   dev: false
   name: sops
   prod: true
