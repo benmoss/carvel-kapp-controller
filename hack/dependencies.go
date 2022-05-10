@@ -85,8 +85,10 @@ func newInstallCommand() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "install",
 		Short: "install dependencies",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return c.Install()
+		Run: func(_ *cobra.Command, _ []string) {
+			if err := c.Install(); err != nil {
+				log.Fatal(err)
+			}
 		},
 	}
 	command.Flags().StringVar(&c.os, "os", runtime.GOOS, "os to install dependencies for")
@@ -221,7 +223,7 @@ func newUpdateCommand() *cobra.Command {
 			}
 			return nil
 		},
-		RunE: func(_ *cobra.Command, _ []string) error {
+		Run: func(_ *cobra.Command, _ []string) {
 			g := errgroup.Group{}
 			for _, dep := range dependencies {
 				if dep.AutoUpdate == nil {
@@ -235,7 +237,9 @@ func newUpdateCommand() *cobra.Command {
 					return nil
 				})
 			}
-			return g.Wait()
+			if err := g.Wait(); err != nil {
+				log.Fatal(err)
+			}
 		},
 	}
 }
