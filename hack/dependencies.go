@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -100,7 +101,7 @@ func newInstallCommand() *cobra.Command {
 }
 
 func (c *installCommand) Install() error {
-	g := errgroup.Group{}
+	g, ctx := errgroup.WithContext(context.Background())
 	for _, dep := range dependencies {
 		if c.dev && !dep.Dev {
 			continue
@@ -109,7 +110,7 @@ func (c *installCommand) Install() error {
 		}
 		dep := dep // https://golang.org/doc/faq#closures_and_goroutines
 		g.Go(func() error {
-			if err := c.downloadAndVerify(dep); err != nil {
+			if err := c.downloadAndVerify(ctx, dep); err != nil {
 				return fmt.Errorf("downloading %s: %w", dep.Name, err)
 			}
 			return nil
@@ -120,7 +121,7 @@ func (c *installCommand) Install() error {
 
 // downloads the dependency by its url template, verifies the checksum, and
 // optionally extracts the executable from the tarball
-func (c *installCommand) downloadAndVerify(dep *dependency) error {
+func (c *installCommand) downloadAndVerify(ctx context.Context, dep *dependency) error {
 	arches, ok := dep.Checksums[c.os]
 	if !ok {
 		return fmt.Errorf("%s not supported on os %s", dep.Name, c.os)
@@ -139,7 +140,11 @@ func (c *installCommand) downloadAndVerify(dep *dependency) error {
 	if err := urlTpl.Execute(&url, fields); err != nil {
 		return err
 	}
-	resp, err := client.Get(url.String())
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
+	if err != nil {
+		return err
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -224,14 +229,14 @@ func newUpdateCommand() *cobra.Command {
 			return nil
 		},
 		Run: func(_ *cobra.Command, _ []string) {
-			g := errgroup.Group{}
+			g, ctx := errgroup.WithContext(context.Background())
 			for _, dep := range dependencies {
 				if dep.AutoUpdate == nil {
 					continue
 				}
 				dep := dep // https://golang.org/doc/faq#closures_and_goroutines
 				g.Go(func() error {
-					if err := update(dep); err != nil {
+					if err := update(ctx, dep); err != nil {
 						return fmt.Errorf("updating %s: %w", dep.Name, err)
 					}
 					return nil
@@ -245,8 +250,13 @@ func newUpdateCommand() *cobra.Command {
 }
 
 // updates the version of the dependency to the one GitHub considers latest and updates checksums
-func update(dep *dependency) error {
-	resp, err := client.Get(fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", dep.AutoUpdate.Github))
+func update(ctx context.Context, dep *dependency) error {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", dep.AutoUpdate.Github)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -279,7 +289,7 @@ func update(dep *dependency) error {
 	// add the "v" prefix back
 	dep.Version = "v" + latest.String()
 
-	return updateChecksums(dep, &release)
+	return updateChecksums(ctx, dep, &release)
 }
 
 func newSyncChecksums() *cobra.Command {
@@ -287,18 +297,18 @@ func newSyncChecksums() *cobra.Command {
 		Use:   "sync-checksums",
 		Short: "sync checksums for the current version",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			g := errgroup.Group{}
+			g, ctx := errgroup.WithContext(context.Background())
 			for _, dep := range dependencies {
 				if dep.AutoUpdate == nil {
 					continue
 				}
 				dep := dep // https://golang.org/doc/faq#closures_and_goroutines
 				g.Go(func() error {
-					release, err := getRelease(dep)
+					release, err := getRelease(ctx, dep)
 					if err != nil {
 						return fmt.Errorf("getting release %s: %w", dep.Name, err)
 					}
-					if err := updateChecksums(dep, release); err != nil {
+					if err := updateChecksums(ctx, dep, release); err != nil {
 						return fmt.Errorf("updating %s: %w", dep.Name, err)
 					}
 					return nil
@@ -310,9 +320,13 @@ func newSyncChecksums() *cobra.Command {
 }
 
 // get the release specified by the current version of this dependency
-func getRelease(dep *dependency) (*githubRelease, error) {
+func getRelease(ctx context.Context, dep *dependency) (*githubRelease, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/tags/%s", dep.AutoUpdate.Github, dep.Version)
-	resp, err := client.Get(url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -328,7 +342,7 @@ func getRelease(dep *dependency) (*githubRelease, error) {
 }
 
 // update the checksums of this dependency to those in the github release
-func updateChecksums(dep *dependency, release *githubRelease) error {
+func updateChecksums(ctx context.Context, dep *dependency, release *githubRelease) error {
 	urlTpl, err := template.New(dep.Name).Parse(dep.URLTemplate)
 	if err != nil {
 		return err
@@ -341,7 +355,11 @@ func updateChecksums(dep *dependency, release *githubRelease) error {
 		// look for the checksum file in the release assets
 		for _, asset := range release.Assets {
 			if asset.Name == *dep.AutoUpdate.Checksums.File {
-				resp, err := client.Get(asset.BrowserDownloadURL)
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, asset.BrowserDownloadURL, nil)
+				if err != nil {
+					return err
+				}
+				resp, err := client.Do(req)
 				if err != nil {
 					return err
 				}
