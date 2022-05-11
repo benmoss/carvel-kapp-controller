@@ -1,8 +1,4 @@
-- autoupdate:
-    checksums:
-      file: checksums.txt
-    github: vmware-tanzu/carvel-ytt
-  checksums:
+- checksums:
     darwin:
       amd64: d46dba5e729e2fe36c369e96eaa2eb5354fb1bf7cf9184f9bfa829b8e5558b94
       arm64: a478eb4a6a88a8e3de9dd2e97c1fb96ca7a65c74525f2e132e6a5b333803f7c8
@@ -11,14 +7,10 @@
       arm64: c5d2f033b375ee87414b51d16c324d7a441de2f256865b5c774c4d5aea30ef60
   dev: true
   name: ytt
-  prod: true
+  repo: vmware-tanzu/carvel-ytt
   urlTemplate: https://github.com/vmware-tanzu/carvel-{{.Name}}/releases/download/{{.Version}}/{{.Name}}-{{.OS}}-{{.Arch}}
   version: v0.40.1
-- autoupdate:
-    checksums:
-      file: checksums.txt
-    github: vmware-tanzu/carvel-kbld
-  checksums:
+- checksums:
     darwin:
       amd64: 181ac8be5652b54344617d90aa8e83fbb41756d1b4b99168fec85d8813b3c1b2
       arm64: acbde20887239e383d23282ff7d4b017d248f28b7d2097043fed6b4387975723
@@ -27,14 +19,10 @@
       arm64: ac02649e0037ae957b3d18af1f1563fcf2672ea5aa8d8e9da88ea5de6b705897
   dev: true
   name: kbld
-  prod: true
+  repo: vmware-tanzu/carvel-kbld
   urlTemplate: https://github.com/vmware-tanzu/carvel-{{.Name}}/releases/download/{{.Version}}/{{.Name}}-{{.OS}}-{{.Arch}}
   version: v0.33.0
-- autoupdate:
-    checksums:
-      file: checksums.txt
-    github: vmware-tanzu/carvel-kapp
-  checksums:
+- checksums:
     darwin:
       amd64: ed0a7a86828517e7aa3d4bede659ac725806b0201692f2d574beb71785220406
       arm64: e0c1962884ad153d055786b523827c09d3c05a3faa07c0b186acd40bdb7d46aa
@@ -43,30 +31,22 @@
       arm64: 8808e0cbe06028581b8ed48e0a8426b7fd9dc26d17e24f9ab96522774892839a
   dev: true
   name: kapp
-  prod: true
+  repo: vmware-tanzu/carvel-kapp
   urlTemplate: https://github.com/vmware-tanzu/carvel-{{.Name}}/releases/download/{{.Version}}/{{.Name}}-{{.OS}}-{{.Arch}}
   version: v0.47.0
-- autoupdate:
-    checksums:
-      file: checksums.txt
-    github: vmware-tanzu/carvel-imgpkg
-  checksums:
+- checksums:
     darwin:
-      amd64: e43142fdb197a62844acb29cb619d513346aac3c23732a4d180c0ad974d9562e
-      arm64: 64771d5c9138adb880ea09b2545421f2924b4a2104da9b5349816100fbff1541
+      amd64: b8462c9b2b9c060e1a81c206ea9810937bf7357ae2ee150f94ec8635dff1d612
+      arm64: 9fe95ffc572e6d5011b211cb7d85420f41a1b15f91e4899c451e5817dfa67a6f
     linux:
-      amd64: 8d22423dd6d13efc0e580443d8f88d2183c52c6f851ba51e3e54f25bf140be58
-      arm64: 53ea4a9eec4bb1ff6adb701018da9978aad45bdee161d68e08bc69d84459f2c8
+      amd64: c7190adcb8445480e4e457c899aecdf7ca98606c625493b904c0eb2ab721ce19
+      arm64: 415120c4ede6ff1456feae6b980319998c0a3fc2128bbac1946ba98ce4d07aaf
   dev: true
   name: imgpkg
-  prod: true
+  repo: vmware-tanzu/carvel-imgpkg
   urlTemplate: https://github.com/vmware-tanzu/carvel-{{.Name}}/releases/download/{{.Version}}/{{.Name}}-{{.OS}}-{{.Arch}}
-  version: v0.28.0
-- autoupdate:
-    checksums:
-      releaseNotes: true
-    github: vmware-tanzu/carvel-vendir
-  checksums:
+  version: v0.29.0
+- checksums:
     darwin:
       amd64: c26547097d67f21e129a25557d9d36c7c0e109afe130adff63d3c83ce9459ecc
       arm64: 761acab4ef3f227564ee782f917657038c3e3652130a6052ad7f1d9a14103799
@@ -75,7 +55,7 @@
       arm64: 015977ae54d85bf2366d7affb0d582fecf79737f0eb80fa8a66de9f66e877b61
   dev: true
   name: vendir
-  prod: true
+  repo: vmware-tanzu/carvel-vendir
   urlTemplate: https://github.com/vmware-tanzu/carvel-{{.Name}}/releases/download/{{.Version}}/{{.Name}}-{{.OS}}-{{.Arch}}
   version: v0.27.0
 - checksums:
@@ -84,7 +64,7 @@
       arm64: 23e08035dc0106fe4e0bd85800fd795b2b9ecd9f32187aa16c49b0a917105161
   dev: false
   name: helm
-  prod: true
+  repo: helm/helm
   tarballSubpath: '{{.OS}}-{{.Arch}}/helm'
   urlTemplate: https://get.helm.sh/helm-{{.Version}}-{{.OS}}-{{.Arch}}.tar.gz
   version: v3.8.0
@@ -94,7 +74,7 @@
       arm64: 86a6c48ec64255bd317d7cd52c601dc62e81be68ca07cdeb21a1e0809763647f
   dev: false
   name: sops
-  prod: true
+  repo: mozilla/sops
   urlTemplate: https://github.com/mozilla/sops/releases/download/{{.Version}}/sops-{{.Version}}.{{.OS}}.{{.Arch}}
   version: v3.7.2
 - checksums:
@@ -103,32 +83,17 @@
       arm64: 6c82aa1d406e5a401ec3bb344cd406626478be74d5ae628f192d907cd78af981
   dev: false
   name: age
-  prod: true
+  repo: FiloSottile/age
   tarballSubpath: age/age
   urlTemplate: https://github.com/FiloSottile/age/releases/download/{{.Version}}/age-{{.Version}}-{{.OS}}-{{.Arch}}.tar.gz
   version: v1.0.0
-- autoupdate:
-    checksums:
-      file: checksums.txt
-    github: cue-lang/cue
-  checksums:
+- checksums:
     linux:
       amd64: d43cf77e54f42619d270b8e4c1836aec87304daf243449c503251e6943f7466a
       arm64: 6515c1f1b6fc09d083be533019416b28abd91e5cdd8ef53cd0719a4b4b0cd1c7
   dev: false
   name: cue
-  prod: true
+  repo: cue-lang/cue
   tarballSubpath: cue
   urlTemplate: https://github.com/cue-lang/cue/releases/download/{{.Version}}/cue_{{.Version}}_{{.OS}}_{{.Arch}}.tar.gz
   version: v0.4.2
-- checksums:
-    darwin:
-      amd64: d651c75bb708ca2855203ca2a3328d97ae5145e3d4b1804ed93a37ffd53714ad
-    linux:
-      amd64: da8e4c7c1d0176432f623797c8989300fc37b07cc469876c0849c14af53967cd
-  dev: true
-  name: kubectl-buildkit
-  prod: false
-  tarballSubpath: kubectl-buildkit
-  urlTemplate: https://github.com/vmware-tanzu/buildkit-cli-for-kubectl/releases/download/{{.Version}}/{{.OS}}-{{.Version}}.tgz
-  version: v0.1.5

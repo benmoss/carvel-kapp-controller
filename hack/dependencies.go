@@ -5,7 +5,6 @@ package main
 
 import (
 	"archive/tar"
-	"bufio"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -16,9 +15,9 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"path"
-	"regexp"
 	"runtime"
 	"strings"
 	"text/template"
@@ -31,33 +30,9 @@ import (
 
 var (
 	cfgFile      string
-	dependencies []*dependency
+	dependencies depslice
 	client       *http.Client
 )
-
-type dependency struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
-	// Template for the download URL of the artifact
-	URLTemplate string `json:"urlTemplate"`
-	// Whether this should be installed by the --dev flag
-	Dev bool `json:"dev"`
-	// Whether this should be installed without the --dev flag
-	Prod bool `json:"prod"`
-	// Optional ways of configuring how we check for updates
-	AutoUpdate *autoUpdate `json:"autoupdate,omitempty"`
-	// map["linux"]map["amd64"] => "sha256"
-	Checksums      map[string]map[string]string `json:"checksums"`
-	TarballSubpath *string                      `json:"tarballSubpath,omitempty"`
-}
-
-type autoUpdate struct {
-	Github    string `json:"github"`
-	Checksums struct {
-		File         *string `json:"file,omitempty"`
-		ReleaseNotes *bool   `json:"releaseNotes,omitempty"`
-	} `json:"checksums,omitempty"`
-}
 
 type githubRelease struct {
 	TagName string `json:"tag_name"`
@@ -73,6 +48,20 @@ type fields struct {
 	Version,
 	OS,
 	Arch string
+}
+
+type depslice []*dependency
+
+// iterates through each dependency, calling `f` on a Goroutine per dependency and aggregating errors
+func (d depslice) each(f func(context.Context, *dependency) error) error {
+	g, ctx := errgroup.WithContext(context.Background())
+	for _, dep := range d {
+		dep := dep // https://golang.org/doc/faq#closures_and_goroutines
+		g.Go(func() error {
+			return f(ctx, dep)
+		})
+	}
+	return g.Wait()
 }
 
 type installCommand struct {
@@ -100,119 +89,6 @@ func newInstallCommand() *cobra.Command {
 	return command
 }
 
-func (c *installCommand) Install() error {
-	g, ctx := errgroup.WithContext(context.Background())
-	for _, dep := range dependencies {
-		if c.dev && !dep.Dev {
-			continue
-		} else if !c.dev && !dep.Prod {
-			continue
-		}
-		dep := dep // https://golang.org/doc/faq#closures_and_goroutines
-		g.Go(func() error {
-			if err := c.downloadAndVerify(ctx, dep); err != nil {
-				return fmt.Errorf("downloading %s: %w", dep.Name, err)
-			}
-			return nil
-		})
-	}
-	return g.Wait()
-}
-
-// downloads the dependency by its url template, verifies the checksum, and
-// optionally extracts the executable from the tarball
-func (c *installCommand) downloadAndVerify(ctx context.Context, dep *dependency) error {
-	arches, ok := dep.Checksums[c.os]
-	if !ok {
-		return fmt.Errorf("%s not supported on os %s", dep.Name, c.os)
-	}
-	checksum, ok := arches[c.arch]
-	if !ok {
-		return fmt.Errorf("%s not supported on platform %s/%s", dep.Name, c.os, c.arch)
-	}
-
-	urlTpl, err := template.New(dep.Name).Parse(dep.URLTemplate)
-	if err != nil {
-		return err
-	}
-	var url bytes.Buffer
-	fields := fields{Name: dep.Name, Version: dep.Version, OS: c.os, Arch: c.arch}
-	if err := urlTpl.Execute(&url, fields); err != nil {
-		return err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
-	if err != nil {
-		return err
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad status code retrieving url: %s: %s", url.String(), resp.Status)
-	}
-
-	content, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	log.Printf("%s downloaded", dep.Name)
-
-	hasher := sha256.New()
-	_, err = hasher.Write(content)
-	if err != nil {
-		return err
-	}
-	actual := hex.EncodeToString(hasher.Sum(nil))
-	if actual != checksum {
-		return fmt.Errorf("%s: wrong checksum, expected: %s, got: %s", dep.Name, checksum, actual)
-	}
-	log.Printf("%s validated", dep.Name)
-
-	if dep.TarballSubpath != nil {
-		tarballTpl, err := template.New(dep.Name).Parse(*dep.TarballSubpath)
-		if err != nil {
-			return err
-		}
-		var tarballSubpath bytes.Buffer
-		if err := tarballTpl.Execute(&tarballSubpath, fields); err != nil {
-			return err
-		}
-		gzReader, err := gzip.NewReader(bytes.NewReader(content))
-		if err != nil {
-			return err
-		}
-		tgzReader := tar.NewReader(gzReader)
-		for {
-			hdr, err := tgzReader.Next()
-			if err == io.EOF {
-				return fmt.Errorf("tarball subpath not found: %s", tarballSubpath.String())
-			}
-			if hdr.Name == tarballSubpath.String() {
-				out, err := os.Create(path.Join(c.destDir, dep.Name))
-				if err != nil {
-					return err
-				}
-				_, err = io.Copy(out, tgzReader)
-				if err != nil {
-					return err
-				}
-				if err := out.Chmod(0777); err != nil {
-					return err
-				}
-				log.Printf("%s extracted", dep.Name)
-				break
-			}
-		}
-	} else {
-		if err = os.WriteFile(path.Join(c.destDir, dep.Name), content, 0777); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func newUpdateCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "update",
@@ -229,29 +105,216 @@ func newUpdateCommand() *cobra.Command {
 			return nil
 		},
 		Run: func(_ *cobra.Command, _ []string) {
-			g, ctx := errgroup.WithContext(context.Background())
-			for _, dep := range dependencies {
-				if dep.AutoUpdate == nil {
-					continue
+			err := dependencies.each(func(ctx context.Context, dep *dependency) error {
+				if err := dep.update(ctx); err != nil {
+					return fmt.Errorf("updating %s: %w", dep.Name, err)
 				}
-				dep := dep // https://golang.org/doc/faq#closures_and_goroutines
-				g.Go(func() error {
-					if err := update(ctx, dep); err != nil {
-						return fmt.Errorf("updating %s: %w", dep.Name, err)
-					}
-					return nil
-				})
-			}
-			if err := g.Wait(); err != nil {
+				return nil
+			})
+			if err != nil {
 				log.Fatal(err)
 			}
 		},
 	}
 }
 
+func newSyncChecksums() *cobra.Command {
+	return &cobra.Command{
+		Use:   "sync-checksums",
+		Short: "sync checksums for the current version",
+		Run: func(_ *cobra.Command, _ []string) {
+			err := dependencies.each(func(ctx context.Context, dep *dependency) error {
+				release, err := dep.getRelease(ctx)
+				if err != nil {
+					return fmt.Errorf("getting release %s: %w", dep.Name, err)
+				}
+				dep.Version = release.TagName
+				if err := dep.updateChecksums(ctx); err != nil {
+					return fmt.Errorf("updating %s: %w", dep.Name, err)
+				}
+				return nil
+			})
+			if err != nil {
+				log.Fatal(err)
+			}
+		},
+	}
+}
+
+// dowlnoads, verifies checksum, and (optionally) extracts the binary from a tarball
+func (c *installCommand) Install() error {
+	return dependencies.each(func(ctx context.Context, dep *dependency) error {
+		if c.dev && !dep.Dev {
+			return nil
+		}
+		if err := c.downloadAndVerify(ctx, dep); err != nil {
+			return fmt.Errorf("downloading %s: %w", dep.Name, err)
+		}
+		return nil
+	})
+}
+
+func (c *installCommand) downloadAndVerify(ctx context.Context, dep *dependency) error {
+	arches, ok := dep.Checksums[c.os]
+	if !ok {
+		return fmt.Errorf("not supported on os %s", c.os)
+	}
+	checksum, ok := arches[c.arch]
+	if !ok {
+		return fmt.Errorf("not supported on platform %s/%s", c.os, c.arch)
+	}
+
+	opts := fields{Name: dep.Name, Version: dep.Version, OS: c.os, Arch: c.arch}
+	blob, err := dep.download(ctx, opts)
+	if err != nil {
+		return err
+	}
+	log.Printf("%s downloaded", dep.Name)
+
+	newChecksum, err := blob.Checksum()
+	if err != nil {
+		return err
+	}
+
+	if checksum != newChecksum {
+		return fmt.Errorf("wrong checksum, expected: %s, got: %s", checksum, newChecksum)
+	}
+
+	log.Printf("%s validated", dep.Name)
+
+	file, err := blob.Binary()
+	if err != nil {
+		return err
+	}
+	dest, err := os.Create(path.Join(c.destDir, dep.Name))
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(dest, file); err != nil {
+		return err
+	}
+	return nil
+}
+
+type checksum string
+
+// returns a hex-encoded sha256 hash of the given bytes
+func newChecksumFromBytes(bs []byte) (checksum, error) {
+	hasher := sha256.New()
+	_, err := io.Copy(hasher, bytes.NewReader(bs))
+	if err != nil {
+		return "", err
+	}
+	return checksum(hex.EncodeToString(hasher.Sum(nil))), nil
+}
+
+type blob interface {
+	//  Returns a checksum of the blob
+	Checksum() (checksum, error)
+	// Returns the executable binary
+	Binary() (io.Reader, error)
+}
+
+// tarballBlob wraps a .tgz file to implement the blob interface
+type tarballBlob struct {
+	content []byte
+	subpath string
+}
+
+func (t *tarballBlob) Checksum() (checksum, error) {
+	return newChecksumFromBytes(t.content)
+}
+
+func (t *tarballBlob) Binary() (io.Reader, error) {
+	gzReader, err := gzip.NewReader(bytes.NewReader(t.content))
+	if err != nil {
+		return nil, err
+	}
+	tgzReader := tar.NewReader(gzReader)
+	for {
+		hdr, err := tgzReader.Next()
+		if err == io.EOF {
+			return nil, fmt.Errorf("tarball subpath not found: %s", t.subpath)
+		}
+		if hdr.Name == t.subpath {
+			return tgzReader, nil
+		}
+	}
+}
+
+// fileBlob wraps an executable file to implement the blob interface
+type fileBlob []byte
+
+func (f fileBlob) Checksum() (checksum, error) {
+	return newChecksumFromBytes(f)
+}
+
+func (f fileBlob) Binary() (io.Reader, error) {
+	return bytes.NewReader(f), nil
+}
+
+type dependency struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+	// Template for the download URL of the artifact
+	URLTemplate string `json:"urlTemplate"`
+	// Whether this should be installed by the --dev flag
+	Dev bool `json:"dev"`
+	// Github repo (org/name)
+	Repo string `json:"repo,omitempty"`
+	// map["linux"]map["amd64"] => "sha256"
+	Checksums      map[string]map[string]checksum `json:"checksums"`
+	TarballSubpath *string                        `json:"tarballSubpath,omitempty"`
+}
+
+// downloads the dependency by its url template
+func (d *dependency) download(ctx context.Context, opts fields) (blob, error) {
+	urlTpl, err := template.New(d.Name).Parse(d.URLTemplate)
+	if err != nil {
+		return nil, err
+	}
+	var url bytes.Buffer
+	if err := urlTpl.Execute(&url, opts); err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("bad status code retrieving url: %s: %s", url.String(), resp.Status)
+	}
+
+	content, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if d.TarballSubpath != nil {
+		tarballTpl, err := template.New(d.Name).Parse(*d.TarballSubpath)
+		if err != nil {
+			return nil, err
+		}
+		var tarballSubpath bytes.Buffer
+		if err := tarballTpl.Execute(&tarballSubpath, opts); err != nil {
+			return nil, err
+		}
+		return &tarballBlob{
+			subpath: tarballSubpath.String(),
+			content: content,
+		}, nil
+	}
+	return fileBlob(content), nil
+}
+
 // updates the version of the dependency to the one GitHub considers latest and updates checksums
-func update(ctx context.Context, dep *dependency) error {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", dep.AutoUpdate.Github)
+func (d *dependency) update(ctx context.Context) error {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", d.Repo)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -270,9 +333,9 @@ func update(ctx context.Context, dep *dependency) error {
 	}
 
 	// ParseTolerant allows the "v" prefix in the version string
-	current, err := semver.ParseTolerant(dep.Version)
+	current, err := semver.ParseTolerant(d.Version)
 	if err != nil {
-		return fmt.Errorf("err parsing semver from version %q: %w", dep.Version, err)
+		return fmt.Errorf("err parsing semver from version %q: %w", d.Version, err)
 	}
 	latest, err := semver.ParseTolerant(release.TagName)
 	if err != nil {
@@ -281,47 +344,20 @@ func update(ctx context.Context, dep *dependency) error {
 
 	// short-circuit if we're already at latest
 	if latest.LTE(current) {
-		log.Printf("%s is already at latest version %s", dep.Name, latest.String())
+		log.Printf("%s is already at latest version %s", d.Name, latest.String())
 		return nil
 	}
-	log.Printf("Updating %s to %s", dep.Name, latest.String())
+	log.Printf("Updating %s to %s", d.Name, latest.String())
 
 	// add the "v" prefix back
-	dep.Version = "v" + latest.String()
+	d.Version = "v" + latest.String()
 
-	return updateChecksums(ctx, dep, &release)
-}
-
-func newSyncChecksums() *cobra.Command {
-	return &cobra.Command{
-		Use:   "sync-checksums",
-		Short: "sync checksums for the current version",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			g, ctx := errgroup.WithContext(context.Background())
-			for _, dep := range dependencies {
-				if dep.AutoUpdate == nil {
-					continue
-				}
-				dep := dep // https://golang.org/doc/faq#closures_and_goroutines
-				g.Go(func() error {
-					release, err := getRelease(ctx, dep)
-					if err != nil {
-						return fmt.Errorf("getting release %s: %w", dep.Name, err)
-					}
-					if err := updateChecksums(ctx, dep, release); err != nil {
-						return fmt.Errorf("updating %s: %w", dep.Name, err)
-					}
-					return nil
-				})
-			}
-			return g.Wait()
-		},
-	}
+	return d.updateChecksums(ctx)
 }
 
 // get the release specified by the current version of this dependency
-func getRelease(ctx context.Context, dep *dependency) (*githubRelease, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/tags/%s", dep.AutoUpdate.Github, dep.Version)
+func (d *dependency) getRelease(ctx context.Context) (*githubRelease, error) {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/tags/%s", d.Repo, d.Version)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -342,81 +378,19 @@ func getRelease(ctx context.Context, dep *dependency) (*githubRelease, error) {
 }
 
 // update the checksums of this dependency to those in the github release
-func updateChecksums(ctx context.Context, dep *dependency, release *githubRelease) error {
-	urlTpl, err := template.New(dep.Name).Parse(dep.URLTemplate)
-	if err != nil {
-		return err
-	}
-	// map of filenames => checksums
-	checksums := map[string]string{}
-	// get checksums from a checksums.txt file
-	if dep.AutoUpdate.Checksums.File != nil {
-		var checksumFile []byte
-		// look for the checksum file in the release assets
-		for _, asset := range release.Assets {
-			if asset.Name == *dep.AutoUpdate.Checksums.File {
-				req, err := http.NewRequestWithContext(ctx, http.MethodGet, asset.BrowserDownloadURL, nil)
-				if err != nil {
-					return err
-				}
-				resp, err := client.Do(req)
-				if err != nil {
-					return err
-				}
-				defer resp.Body.Close()
-				bs, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return err
-				}
-				checksumFile = bs
-				break
-			}
-		}
-		if len(checksumFile) == 0 {
-			return fmt.Errorf("did not find checksums file in release assets")
-		}
-		// extract checksums to the map
-		scanner := bufio.NewScanner(bytes.NewReader(checksumFile))
-		for scanner.Scan() {
-			split := strings.Fields(scanner.Text())
-			if len(split) != 2 {
-				return fmt.Errorf("expected checksums file to be in format 'sha256 filename'")
-			}
-			filename := strings.TrimLeft(split[1], "./")
-			checksums[filename] = split[0]
-		}
-	}
-
-	// get checksums from release notes: https://regex101.com/r/8DbUbt/1
-	if dep.AutoUpdate.Checksums.ReleaseNotes != nil && *dep.AutoUpdate.Checksums.ReleaseNotes {
-		regex := regexp.MustCompile(`(?m)([a-z0-9]{64})[\s./]+([a-zA-Z0-9-.]*)`)
-		allMatches := regex.FindAllStringSubmatch(release.Body, -1)
-		for _, matches := range allMatches {
-			if len(matches) != 3 {
-				// full match, checksum, filename
-				log.Fatalf("expected 3 matches in release notes: %v", matches)
-			}
-			checksums[matches[2]] = matches[1]
-		}
-	}
-	// TODO: figure out how to get checksums for helm, sops, age
-
-	for os, arches := range dep.Checksums {
+func (d *dependency) updateChecksums(ctx context.Context) error {
+	for os, arches := range d.Checksums {
 		for arch := range arches {
-			var url bytes.Buffer
-			// generate the URL
-			if err := urlTpl.Execute(&url, fields{Name: dep.Name, Version: dep.Version, OS: os, Arch: arch}); err != nil {
-				log.Fatal(err)
+			blob, err := d.download(ctx, fields{Name: d.Name, Version: d.Version, OS: os, Arch: arch})
+			if err != nil {
+				return err
 			}
-			// get just the filename
-			filename := path.Base(url.String())
-			// find the checksum for this file
-			checksum, ok := checksums[filename]
-			if !ok {
-				return fmt.Errorf("no checksum found for filename %s", filename)
+			checksum, err := blob.Checksum()
+			if err != nil {
+				return err
 			}
-			// update the checksum in the dependency
-			arches[arch] = checksum
+			d.Checksums[os][arch] = checksum
+			log.Printf("%s %s %s/%s checksum synced", d.Name, d.Version, os, arch)
 		}
 	}
 	return nil
@@ -430,8 +404,22 @@ func newGithubTransport() http.RoundTripper {
 }
 
 func (t githubTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	r.Header.Add("Authorization", fmt.Sprintf("Bearer: %s", t))
-	return http.DefaultTransport.RoundTrip(r)
+	if t != "" && strings.Contains(r.URL.Host, "github.com") {
+		r.Header.Add("Authorization", fmt.Sprintf("Bearer: %s", t))
+	}
+	resp, err := http.DefaultTransport.RoundTrip(r)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 400 {
+		respBody, err := httputil.DumpResponse(resp, true)
+		if err != nil {
+			return nil, fmt.Errorf("error dumping response: status %s", resp.Status)
+		}
+		log.Printf("%s:\n%s", r.URL, respBody)
+		return nil, fmt.Errorf("non-200 status code from server: %s", resp.Status)
+	}
+	return resp, err
 }
 
 func main() {
