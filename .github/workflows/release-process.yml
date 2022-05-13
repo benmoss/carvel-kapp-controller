@@ -32,6 +32,10 @@ jobs:
       - name: Run release script
         run: |
           set -e -x
+
+          curl -sLo /tmp/kb.deb https://github.com/vmware-tanzu/buildkit-cli-for-kubectl/releases/download/v0.1.5/kubectl-buildkit_0.1.5_amd64.deb
+          sudo dpkg -i /tmp/kb.deb
+
           minikube start --driver=docker --wait=all
           kubectl create secret docker-registry ghcr --docker-server=ghcr.io --docker-username=${{ github.actor }} --docker-password=${{ secrets.GITHUB_TOKEN }}
           export KCTRL_push_secret=ghcr
