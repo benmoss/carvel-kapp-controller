@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path"
 	"testing"
 )
 
@@ -138,6 +140,41 @@ func TestDependencyUpdate(t *testing.T) {
 	actualVersion := dep.Version
 	if expectedVersion != actualVersion {
 		t.Errorf("version mismatch, expected %q, got %q", expectedVersion, actualVersion)
+	}
+}
+
+func TestDownloadAndVerify(t *testing.T) {
+	dep := dependency{
+		Name:        "test",
+		Repo:        "benmoss/test-resources",
+		Version:     "v1.0.0",
+		URLTemplate: "https://github.com/{{.Repo}}/releases/download/{{.Version}}/{{.Name}}-{{.Version}}-{{.OS}}-{{.Arch}}",
+		Checksums: map[string]map[string]checksum{
+			"darwin": {
+				"amd64": "d51945f0bca8e1b54025a8a18ffebf885edd09a8731a8955100a9b0f03dbd4c0",
+			},
+		},
+	}
+	tmpDir, err := os.MkdirTemp("", "hack-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	install := installCommand{
+		os:      "darwin",
+		arch:    "amd64",
+		destDir: tmpDir,
+	}
+	if err := install.downloadAndVerify(context.Background(), &dep); err != nil {
+		t.Fatal(err)
+	}
+	fileInfo, err := os.Stat(path.Join(tmpDir, dep.Name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fileInfo.Mode().Perm() != 0777 {
+		t.Fatalf("expected file to be executable, got mode %s", fileInfo.Mode().Perm())
 	}
 }
 

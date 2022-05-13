@@ -188,8 +188,12 @@ func (c *installCommand) downloadAndVerify(ctx context.Context, dep *dependency)
 	if err != nil {
 		return err
 	}
-	dest, err := os.Create(path.Join(c.destDir, dep.Name))
+	filepath := path.Join(c.destDir, dep.Name)
+	dest, err := os.Create(filepath)
 	if err != nil {
+		return err
+	}
+	if err := os.Chmod(filepath, 0777); err != nil {
 		return err
 	}
 	if _, err := io.Copy(dest, file); err != nil {
