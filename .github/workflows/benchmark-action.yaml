@@ -32,6 +32,9 @@ jobs:
         run: |
           set -e -x
 
+          curl -sLo /tmp/kb.deb https://github.com/vmware-tanzu/buildkit-cli-for-kubectl/releases/download/v0.1.5/kubectl-buildkit_0.1.5_amd64.deb
+          sudo dpkg -i /tmp/kb.deb
+
           minikube start --driver=docker --wait=all
           eval $(minikube docker-env --shell=bash)
           ./hack/deploy-test.sh

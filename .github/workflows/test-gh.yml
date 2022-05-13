@@ -31,6 +31,8 @@ jobs:
         mkdir /tmp/bin
         export PATH=/tmp/bin:$PATH
 
+        curl -sLo /tmp/kb.deb https://github.com/vmware-tanzu/buildkit-cli-for-kubectl/releases/download/v0.1.5/kubectl-buildkit_0.1.5_amd64.deb
+        sudo dpkg -i /tmp/kb.deb
         # Need to install protoc to run generators used in ./hack/verify-no-dirty-files.sh
         curl -sLO https://github.com/protocolbuffers/protobuf/releases/download/v3.15.8/protoc-3.15.8-linux-x86_64.zip
         echo "b9ff821d2a4f9e9943dc2a13e6a76d99c7472dac46ddd3718a3a4c3b877c044a  protoc-3.15.8-linux-x86_64.zip" | sha256sum -c -
