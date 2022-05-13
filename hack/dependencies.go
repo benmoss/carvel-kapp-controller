@@ -43,11 +43,13 @@ type githubRelease struct {
 	Body string `json:"body"`
 }
 
-type fields struct {
-	Name,
-	Version,
+type platform struct {
 	OS,
 	Arch string
+}
+type templateArgs struct {
+	platform
+	*dependency
 }
 
 type depslice []*dependency
@@ -164,7 +166,7 @@ func (c *installCommand) downloadAndVerify(ctx context.Context, dep *dependency)
 		return fmt.Errorf("not supported on platform %s/%s", c.os, c.arch)
 	}
 
-	opts := fields{Name: dep.Name, Version: dep.Version, OS: c.os, Arch: c.arch}
+	opts := platform{OS: c.os, Arch: c.arch}
 	blob, err := dep.download(ctx, opts)
 	if err != nil {
 		return err
@@ -268,13 +270,14 @@ type dependency struct {
 }
 
 // downloads the dependency by its url template
-func (d *dependency) download(ctx context.Context, opts fields) (blob, error) {
+func (d *dependency) download(ctx context.Context, opts platform) (blob, error) {
+	templateArgs := templateArgs{opts, d}
 	urlTpl, err := template.New(d.Name).Parse(d.URLTemplate)
 	if err != nil {
 		return nil, err
 	}
 	var url bytes.Buffer
-	if err := urlTpl.Execute(&url, opts); err != nil {
+	if err := urlTpl.Execute(&url, templateArgs); err != nil {
 		return nil, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
@@ -301,7 +304,7 @@ func (d *dependency) download(ctx context.Context, opts fields) (blob, error) {
 			return nil, err
 		}
 		var tarballSubpath bytes.Buffer
-		if err := tarballTpl.Execute(&tarballSubpath, opts); err != nil {
+		if err := tarballTpl.Execute(&tarballSubpath, templateArgs); err != nil {
 			return nil, err
 		}
 		return &tarballBlob{
@@ -381,7 +384,7 @@ func (d *dependency) getRelease(ctx context.Context) (*githubRelease, error) {
 func (d *dependency) updateChecksums(ctx context.Context) error {
 	for os, arches := range d.Checksums {
 		for arch := range arches {
-			blob, err := d.download(ctx, fields{Name: d.Name, Version: d.Version, OS: os, Arch: arch})
+			blob, err := d.download(ctx, platform{OS: os, Arch: arch})
 			if err != nil {
 				return err
 			}
