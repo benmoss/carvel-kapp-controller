@@ -76,7 +76,7 @@ rm -rf tmp/gen-apiserver-bin/
 mkdir -p tmp/gen-apiserver-bin/
 go build -o tmp/gen-apiserver-bin/protoc-gen-gogo vendor/github.com/gogo/protobuf/protoc-gen-gogo/main.go
 go build -o tmp/gen-apiserver-bin/protoc-gen-gofast vendor/github.com/gogo/protobuf/protoc-gen-gofast/main.go
-go build -o tmp/gen-apiserver-bin/goimports vendor/golang.org/x/tools/cmd/goimports/{goimports,goimports_not_gc}.go
+go install golang.org/x/tools/cmd/goimports@latest
 export PATH=$PWD/tmp/gen-apiserver-bin/:$PATH
 
 rm -f $(find pkg|grep '\.proto')
@@ -87,6 +87,5 @@ go run vendor/k8s.io/code-generator/cmd/go-to-protobuf/main.go \
   --packages "-github.com/vmware-tanzu/carvel-vendir/pkg/vendir/versions/v1alpha1,${KC_PKG}/pkg/apis/kappctrl/v1alpha1,${KC_PKG}/pkg/apiserver/apis/datapackaging/v1alpha1" \
   --vendor-output-base="${GOPATH}/src/${KC_PKG}/vendor" \
   --go-header-file hack/gen-boilerplate.txt
-
 
 echo "GEN SUCCESS"
