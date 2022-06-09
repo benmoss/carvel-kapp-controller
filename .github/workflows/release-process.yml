@@ -33,8 +33,7 @@ jobs:
         run: |
           set -e -x
           minikube start --driver=docker --wait=all
-          kubectl create secret docker-registry ghcr --docker-server=ghcr.io --docker-username=${{ github.actor }} --docker-password=${{ secrets.GITHUB_TOKEN }}
-          export KCTRL_push_secret=ghcr KCTRL_image_repo=ghcr.io/${{github.repository}}
+          export KCTRL_image_repo=ghcr.io/${{github.repository}}
           docker buildx create minikube --use --driver=kubernetes --bootstrap
           ./hack/build-release.sh
           cd cli
