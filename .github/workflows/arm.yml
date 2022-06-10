@@ -1,0 +1,15 @@
+name: arm
+"on":
+  push:
+    branches:
+      - arm-test
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: pguyot/arm-runner-action@v2
+      with:
+        commands: |
+            echo "hellooo world"
