@@ -12,4 +12,6 @@ jobs:
     - uses: pguyot/arm-runner-action@v2
       with:
         commands: |
-            echo "hellooo world"
+            curl -sLo minikube https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-arm64
+            chmod +x ./minikube
+            ./minikube start
