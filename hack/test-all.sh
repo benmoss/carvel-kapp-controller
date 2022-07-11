@@ -3,12 +3,12 @@
 set -e -x -u
 
 ./hack/build.sh
-ulimit -u
+echo ulimit: $(ulimit -u)
 ./hack/test.sh
-ulimit -u
+echo ulimit: $(ulimit -u)
 ./hack/test-e2e.sh
-ulimit -u
+echo ulimit: $(ulimit -u)
 ./hack/test-examples.sh
-ulimit -u
+echo ulimit: $(ulimit -u)
 
 echo ALL SUCCESS
